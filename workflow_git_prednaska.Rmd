@@ -1,0 +1,1177 @@
+---
+title: "Workflow v Data Science projektoch"
+subtitle: "Ako organizovať projekty, verziovať kód a spolupracovať — Git pre ekonómov"
+author: "Úvod do Data Science"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 2
+    number_sections: false
+    theme: flatly
+    highlight: tango
+    css: prednaska_doc.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  eval    = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  comment = "#>"
+)
+```
+
+---
+
+# 🗺️ Prečo na tom záleží {.tabset .tabset-fade .tabset-pills}
+
+## Problém bez workflow
+
+Poznáte tento priečinok?
+
+```
+diplomovka/
+├── analyza.R
+├── analyza_final.R
+├── analyza_final_v2.R
+├── analyza_final_v2_OPRAVENA.R
+├── analyza_TOTO_JE_TO_PRAVE.R
+├── analyza_jan_opravy.R
+├── data.xlsx
+├── data_nove.xlsx
+├── data_nove_2.xlsx
+├── data_cistena.xlsx
+├── graf.png
+├── graf_lepsi.png
+├── graf_pre_veduceho.png
+└── graf_pre_veduceho_final.png
+```
+
+> **"Ktorý súbor je ten aktuálny?"**  
+> — každý študent 3 dni pred odovzdaním
+
+**Dôsledky zlého workflow:**
+
+- Stratíte hodiny práce (omylom prepísaný súbor)
+- Nevieme sa vrátiť k predchádzajúcej verzii
+- Spolupráca = posielanie .xlsx emailom
+- Analýza nie je reprodukovateľná ani po 2 týždňoch
+
+## Čo je workflow?
+
+**Workflow** = opakovaný, štandardizovaný postup práce na projekte.
+
+Dobrý workflow zabezpečuje:
+
+- 📁 **Organizáciu** — každý súbor má svoje miesto a zmysluplný názov
+- 🔄 **Verzionáciu** — história každej zmeny, možnosť návratu
+- 🔁 **Reprodukovateľnosť** — ktokoľvek spustí kód a dostane rovnaké výsledky
+- 🤝 **Spoluprácu** — viac ľudí pracuje na tom istom projekte bez konfliktov
+- 📦 **Prenosnosť** — projekt funguje na inom počítači bez úprav ciest
+
+## Kde sme v Data Science procese?
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   DATA SCIENCE PROJEKT                       │
+│                                                              │
+│  1. OTÁZKA        2. DÁTA          3. ANALÝZA               │
+│  Čo chceme        Získanie,        EDA, modelovanie,         │
+│  zistiť?          čistenie         vizualizácia              │
+│       │                │                 │                   │
+│       └────────────────┴─────────────────┘                   │
+│                        │                                     │
+│            ┌───────────▼──────────┐                          │
+│            │  WORKFLOW & GIT      │  ← sme tu               │
+│            │  (lepidlo projektu)  │                          │
+│            └──────────────────────┘                          │
+│                        │                                     │
+│  4. KOMUNIKÁCIA    5. REPRODUKOVATEĽNOSŤ                     │
+│  Správa, prezentácia   renv, config, pipeline                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Workflow nie je jeden krok — je **naprieč celým projektom**.
+
+---
+
+# 📁 Štruktúra projektu {.tabset .tabset-fade .tabset-pills}
+
+## Odporúčaná štruktúra
+
+Neexistuje jedna správna štruktúra, ale existujú **overené vzory**. Pre typický ekonometrický alebo dátový projekt:
+
+```
+moj_projekt/
+│
+├── 📄 README.md              ← Čo je projekt, ako ho spustiť
+├── 📄 .gitignore             ← Čo GIT nemá sledovať
+│
+├── 📂 data/
+│   ├── raw/                  ← Pôvodné dáta — NIKDY neupravujeme!
+│   │   └── eurostat_gdp.csv
+│   └── processed/            ← Vyčistené, transformované dáta
+│       └── gdp_clean.parquet
+│
+├── 📂 scripts/ (alebo R/ pre R balíčky)
+│   ├── 01_load_data.R        ← Číslovanie = poradie spúšťania
+│   ├── 02_clean_data.R
+│   ├── 03_eda.R
+│   └── 04_model.R
+│
+├── 📂 notebooks/
+│   └── exploratory.ipynb     ← Experimentovanie, nie produkcia
+│
+├── 📂 output/
+│   ├── figures/
+│   └── tables/
+│
+├── 📂 docs/
+│   └── final_report.Rmd
+│
+└── 📄 renv.lock / requirements.txt   ← Závislosti
+```
+
+## Kľúčové pravidlá
+
+**Pravidlo 1: Raw dáta sú posvätné**
+
+```
+data/raw/    ← read-only, nikdy neupravujte, len čítajte
+data/processed/ ← výstupy vašich čistiacich skriptov
+```
+
+Ak pokazíte `raw/`, nemáte z čoho obnoviť. Ak pokazíte `processed/`, stačí znova spustiť čistiaci skript.
+
+---
+
+**Pravidlo 2: Číslovanie skriptov**
+
+```
+01_load.R       ← jasné poradie spúšťania
+02_clean.R
+03_explore.R
+04_model.R
+05_visualize.R
+```
+
+Nie `analyza.R`, `analyza2.R`, `novy_pokus.R`.
+
+---
+
+**Pravidlo 3: Relatívne cesty, nie absolútne**
+
+```r
+# ❌ ZLÉ — funguje len na vašom počítači
+df <- read_csv("C:/Users/martin/Desktop/projekt/data/raw/data.csv")
+
+# ✅ SPRÁVNE — funguje kdekoľvek
+library(here)
+df <- read_csv(here("data", "raw", "data.csv"))
+```
+
+```python
+# ❌ ZLÉ
+df = pd.read_csv("/home/martin/projekt/data/raw/data.csv")
+
+# ✅ SPRÁVNE
+from pathlib import Path
+DATA = Path(__file__).parent.parent / "data" / "raw"
+df = pd.read_csv(DATA / "data.csv")
+```
+
+## here a pathlib
+
+### R — balíček `here`
+
+`here::here()` vždy stavia cestu od koreňa projektu (kde je `.Rproj` alebo `.git`):
+
+```r
+library(here)
+
+# Zistí kde je koreň projektu
+here()
+# → "/home/martin/moj_projekt"
+
+# Konštruuje cestu
+here("data", "raw", "eurostat.csv")
+# → "/home/martin/moj_projekt/data/raw/eurostat.csv"
+
+# Použitie
+df   <- readr::read_csv(here("data", "raw", "eurostat.csv"))
+plot <- ggplot(df, ...) + ...
+ggsave(here("output", "figures", "gdp_trend.png"), plot)
+```
+
+### Python — `pathlib.Path`
+
+```python
+from pathlib import Path
+
+# Koreň projektu (od aktuálneho súboru)
+ROOT = Path(__file__).resolve().parent.parent
+
+# Cesty
+DATA_RAW  = ROOT / "data" / "raw"
+DATA_PROC = ROOT / "data" / "processed"
+OUTPUT    = ROOT / "output" / "figures"
+
+# Použitie
+df = pd.read_csv(DATA_RAW / "eurostat.csv")
+fig.savefig(OUTPUT / "gdp_trend.png", dpi=150)
+```
+
+## README.md
+
+Každý projekt musí mať `README.md` — je to prvá vec, ktorú vidia spolupracovníci (a vy sami o 6 mesiacov).
+
+```markdown
+# Analýza HDP krajín V4 (2010–2023)
+
+Projekt skúma vývoj HDP na obyvateľa v krajinách V4 a jeho vzťah
+k miere nezamestnanosti a exportu.
+
+## Štruktúra
+
+- `data/raw/`     — pôvodné dáta z Eurostatu (CSV)
+- `data/processed/` — vyčistené dáta (Parquet)
+- `scripts/`      — R skripty v poradí spúšťania
+- `output/`       — grafy a tabuľky
+
+## Ako spustiť
+
+1. Nainštalujte závislosti: `renv::restore()`
+2. Spustite skripty v poradí: `01_load.R` → `02_clean.R` → ...
+3. Alebo: `targets::tar_make()` pre celý pipeline
+
+## Dáta
+
+- Zdroj: Eurostat API (https://ec.europa.eu/eurostat)
+- Stiahnuté: 2024-03-15
+- Premenné: HDP, nezamestnanosť, export, populácia
+
+## Autori
+
+Martin Novák (martin.novak@student.tuke.sk)
+```
+
+---
+
+# 🔧 Git — základy {.tabset .tabset-fade .tabset-pills}
+
+## Čo je Git?
+
+**Git** je systém na správu verzií kódu (Version Control System). Vytvoril ho Linus Torvalds v roku 2005 pre vývoj Linuxového jadra.
+
+**Analogia:** Predstavte si Git ako **nekonečné Ctrl+Z** pre celý priečinok projektu — s tým, že každý „undo krok" má popis, autora a dátum.
+
+```
+Bez Gitu:                    S Gitom:
+─────────────────────        ─────────────────────────────────────
+analyza.R                    analyza.R  (jeden súbor)
+analyza_v2.R                 + história:
+analyza_v2_opravena.R          2024-03-01  "Prvá verzia"
+analyza_FINAL.R                2024-03-05  "Opravené kódovanie"
+analyza_FINAL2.R               2024-03-10  "Pridaná regresná analýza"
+                               2024-03-15  "Finálna verzia pre odovzdanie"
+                               ← kedykoľvek sa vrátim na ľubovoľný stav
+```
+
+**Git ≠ GitHub**
+
+| | Git | GitHub / GitLab |
+|---|---|---|
+| **Čo je** | Softvér na správu verzií | Webová platforma pre Git repozitáre |
+| **Kde beží** | Na vašom počítači | V cloude |
+| **Potrebuje internet** | Nie | Áno |
+| **Analógia** | Váš denník zmien | Zdieľaná skrinka v knižnici |
+
+## Základné pojmy
+
+```
+┌──────────────────┬──────────────────────────────────────────┐
+│ GIT POJEM        │ VÝZNAM                                   │
+├──────────────────┼──────────────────────────────────────────┤
+│ repository (repo)│ Priečinok sledovaný Gitom + jeho história│
+│ commit           │ Snímka (snapshot) projektu v čase        │
+│ staging area     │ "Košík" — čo pôjde do ďalšieho commitu  │
+│ branch           │ Vetva — paralelná verzia projektu        │
+│ merge            │ Zlúčenie dvoch vetví                     │
+│ remote           │ Vzdialená kópia repozitára (GitHub)      │
+│ clone            │ Stiahnutie repozitára z GitHubu          │
+│ push             │ Odoslanie commitov na GitHub             │
+│ pull             │ Stiahnutie zmien z GitHubu               │
+│ .gitignore       │ Súbory, ktoré Git ignoruje               │
+└──────────────────┴──────────────────────────────────────────┘
+```
+
+**Tri oblasti práce v Gite:**
+
+```
+Pracovný priečinok     Staging area        Repozitár (.git/)
+(Working Directory)    (Index)             (história)
+       │                    │                    │
+       │   git add ────────►│   git commit ─────►│
+       │                    │                    │
+       │◄─ git restore ─────│                    │
+       │                    │                    │
+       │◄─────────────────────── git checkout ───│
+```
+
+## Inštalácia a nastavenie
+
+### 1. Inštalácia Git
+
+**Windows:** Stiahnite z [git-scm.com](https://git-scm.com) → Git Bash sa nainštaluje automaticky
+
+**Mac:** 
+```bash
+# Cez Homebrew (odporúčané)
+brew install git
+
+# alebo spustite git --version — Mac ponúkne inštaláciu automaticky
+git --version
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update && sudo apt install git
+```
+
+### 2. Prvotné nastavenie (raz za celý život)
+
+```bash
+# Vaše meno a email — objavia sa pri každom commite
+git config --global user.name  "Martin Novák"
+git config --global user.email "martin.novak@student.tuke.sk"
+
+# Predvolený editor (odporúčam VS Code alebo nano)
+git config --global core.editor "code --wait"   # VS Code
+git config --global core.editor "nano"          # jednoduchší
+
+# Predvolená vetva sa bude volať "main" (nie staré "master")
+git config --global init.defaultBranch main
+
+# Overenie nastavení
+git config --list
+```
+
+### 3. Overenie
+
+```bash
+git --version
+# → git version 2.43.0
+```
+
+## Prvý repozitár
+
+```bash
+# Vytvorte nový priečinok a inicializujte repozitár
+mkdir moj_projekt
+cd moj_projekt
+git init
+# → Initialized empty Git repository in /home/martin/moj_projekt/.git/
+
+# Vytvorte README
+echo "# Moj prvý projekt" > README.md
+
+# Pozrite sa na stav
+git status
+# → On branch main
+# → Untracked files:
+# →   README.md
+
+# Pridajte do staging area
+git add README.md
+
+# alebo pridajte VŠETKO naraz
+git add .
+
+# Vytvorte prvý commit
+git commit -m "Prvý commit: pridaný README"
+# → [main (root-commit) a1b2c3d] Prvý commit: pridaný README
+
+# Pozrite históriu
+git log --oneline
+# → a1b2c3d Prvý commit: pridaný README
+```
+
+---
+
+# 📸 Git denný workflow {.tabset .tabset-fade .tabset-pills}
+
+## Základný cyklus
+
+Každý deň práce s Gitom vyzerá takto:
+
+```
+┌──────────────────────────────────────────────────────┐
+│               DENNÝ GIT CYKLUS                       │
+│                                                      │
+│  1. git pull          ← Stiahni novinky z GitHubu   │
+│          │                                           │
+│          ▼                                           │
+│  2. [pracuj na kóde]  ← Edituj súbory                │
+│          │                                           │
+│          ▼                                           │
+│  3. git status        ← Čo sa zmenilo?               │
+│  4. git add .         ← Daj zmeny do košíka          │
+│  5. git commit -m "…" ← Vytvor snímku projektu       │
+│          │                                           │
+│          ▼                                           │
+│  6. git push          ← Pošli na GitHub              │
+└──────────────────────────────────────────────────────┘
+```
+
+## Najdôležitejšie príkazy
+
+```bash
+# ── STAV ─────────────────────────────────────────────────────
+git status               # Čo sa zmenilo? (najčastejší príkaz!)
+git diff                 # Aké konkrétne zmeny? (riadok po riadku)
+git log --oneline        # História commitov (skrátená)
+git log --oneline --graph --all   # História so vetvami
+
+# ── STAGING A COMMIT ─────────────────────────────────────────
+git add nazov_suboru.R   # Pridaj konkrétny súbor
+git add data/            # Pridaj celý priečinok
+git add .                # Pridaj všetko zmenené
+git add -p               # Interaktívne — vyber čo pridáš (pokročilé)
+
+git commit -m "Krátky popis zmeny"
+git commit -m "Pridaná regresia HDP" \
+           -m "Detailnejší popis: použitý OLS model s fixnými efektmi krajín"
+
+# ── VZDIALENÝ REPOZITÁR (GITHUB) ─────────────────────────────
+git remote add origin https://github.com/username/repo.git
+git push -u origin main  # prvý push (nastaví tracking)
+git push                 # každý ďalší push
+git pull                 # stiahni zmeny z GitHubu
+git clone https://github.com/username/repo.git   # skopíruj repo
+
+# ── NÁVRATY ──────────────────────────────────────────────────
+git checkout nazov_suboru.R    # zahoď zmeny v súbore (OPATRNE!)
+git restore nazov_suboru.R     # novší ekvivalent (Git 2.23+)
+git revert abc1234             # vytvor nový commit, ktorý ruší starý
+```
+
+## Dobré commit správy
+
+Commit správa je list sebe samému z budúcnosti. Píšte ich zodpovedne.
+
+```bash
+# ❌ ZLÉ commit správy
+git commit -m "zmeny"
+git commit -m "oprava"
+git commit -m "asdfjkl"
+git commit -m "wip"
+git commit -m "finálne"
+
+# ✅ DOBRÉ commit správy
+git commit -m "Načítané dáta Eurostatu za roky 2010-2023"
+git commit -m "Opravené kódovanie UTF-8 pri načítaní CSV"
+git commit -m "Pridaná regresná analýza s fixnými efektmi"
+git commit -m "Zmenená farebná schéma grafov na colorblind-safe"
+git commit -m "Opravená chyba: HDP per capita delené 1000 nie 1M"
+```
+
+**Konvencia pre správy:** `<čo>(súčasný čas) + <prečo alebo čo konkrétne>`
+
+Príklady:
+- `"Pridaný čistiaci skript pre dáta OECD"`
+- `"Opravená chyba pri výpočte rastu HDP"` 
+- `"Aktualizovaná vizualizácia podľa pripomienok vedúceho"`
+
+## .gitignore
+
+`.gitignore` hovorí Gitu, čo má ignorovať. Vložte ho do koreňa projektu.
+
+```bash
+# Základný .gitignore pre Data Science projekt (R + Python)
+
+# ── Dáta (môžu byť veľké, citlivé alebo generované) ──────────
+data/raw/           # raw dáta — inak zdieľajte cez URL/odkaz
+*.csv               # ak sú dáta generované skriptami
+*.xlsx
+*.parquet
+
+# ── R špecifické ──────────────────────────────────────────────
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj              # (alebo NECHAJTE ak chcete zdieľať projekt)
+
+# ── Python špecifické ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# ── Systémové súbory ──────────────────────────────────────────
+.DS_Store            # Mac
+Thumbs.db            # Windows
+*.log
+
+# ── Tajné údaje (NIKDY do Gitu!) ─────────────────────────────
+.env
+config_secret.yaml
+*_credentials*
+api_keys.txt
+```
+
+> ⚠️ **Zlaté pravidlo:** Ak raz commitnete heslo alebo API kľúč do Gitu, nestačí ho zmazať — musíte ho okamžite zneplatniť. Git si pamätá históriu.
+
+Generátor `.gitignore` pre váš jazyk: **gitignore.io**
+
+---
+
+# 🖥️ Git GUI nástroje {.tabset .tabset-fade .tabset-pills}
+
+## Prehľad nástrojov
+
+Príkazový riadok je mocný, ale GUI nástroje sú priateľskejšie pre začiatočníkov a vizuálne prehľadnejšie.
+
+| Nástroj | Platforma | Vhodný pre | Cena |
+|---|---|---|---|
+| **GitHub Desktop** | Win, Mac | Začiatočníci, jednoduché projekty | Zadarmo |
+| **GitKraken** | Win, Mac, Linux | Vizuálne vetvenie, tímy | Zadarmo (obmedzený) |
+| **Sourcetree** | Win, Mac | Pokročilé operácie | Zadarmo |
+| **VS Code** (vstavaný) | Win, Mac, Linux | Programátori, každodenné použitie | Zadarmo |
+| **RStudio Git panel** | Win, Mac, Linux | R projekty | Zadarmo |
+| **JupyterLab Git** | prehliadač | Python/Jupyter projekty | Zadarmo |
+
+## GitHub Desktop
+
+**GitHub Desktop** je najjednoduchší vstup do Gitu — ideálny pre začiatočníkov.
+
+**Inštalácia:** desktop.github.com → stiahnite a prihláste sa GitHub účtom.
+
+**Typický workflow v GitHub Desktop:**
+
+```
+┌───────────────────────────────────────────────────────────┐
+│  GitHub Desktop                                           │
+│                                                           │
+│  Ľavý panel:         Pravý panel:                         │
+│  ┌──────────────┐    ┌────────────────────────────────┐   │
+│  │ Current Repo │    │  Changes:                      │   │
+│  │ moj_projekt  │    │  ✓ scripts/02_clean.R [zmenený]│   │
+│  ├──────────────┤    │  ✓ README.md          [zmenený]│   │
+│  │ Branch: main │    │  + output/graf.png    [nový]   │   │
+│  ├──────────────┤    ├────────────────────────────────┤   │
+│  │ Changes  [3] │    │  Summary (required):           │   │
+│  │ History      │    │  ┌──────────────────────────┐  │   │
+│  └──────────────┘    │  │ Opravené čistenie dát    │  │   │
+│                      │  └──────────────────────────┘  │   │
+│                      │  Description (optional):       │   │
+│                      │  ┌──────────────────────────┐  │   │
+│                      │  │ Opravené kódovanie...    │  │   │
+│                      │  └──────────────────────────┘  │   │
+│                      │  [Commit to main]              │   │
+│                      └────────────────────────────────┘   │
+│  [Fetch origin]  [Pull]  [Push origin]                    │
+└───────────────────────────────────────────────────────────┘
+```
+
+**Postup:**
+
+1. **File → New Repository** alebo **Clone Repository** (z GitHubu)
+2. Pracujte v súboroch normálne (R, Python, ...)
+3. Otvorte GitHub Desktop → vidíte zmenené súbory
+4. Zaškrtnite súbory, ktoré chcete commitnúť
+5. Napíšte **Summary** (commit správu)
+6. Kliknite **Commit to main**
+7. Kliknite **Push origin** → odošle na GitHub
+
+## RStudio Git panel
+
+RStudio má vstavaný Git panel — ideálne pre R projekty.
+
+**Nastavenie:**
+
+1. **Tools → Global Options → Git/SVN** → zaistite, že Git executable je nastavený
+2. **File → New Project → Version Control → Git** → vložte URL z GitHubu
+3. — alebo pre existujúci projekt: **Tools → Project Options → Git/SVN → Initialize**
+
+**Git panel v RStudio:**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  RStudio — Git panel (pravý horný roh)                     │
+│                                                            │
+│  [Git] [Environment] [History] [Connections]               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ [Diff] [Commit] [Pull ↓] [Push ↑] [History] [More ▾]│  │
+│  ├──────┬───────────────────────────────────────────────┤  │
+│  │Status│ Path                                          │  │
+│  ├──────┼───────────────────────────────────────────────┤  │
+│  │  M   │ scripts/02_clean.R      ← Modified            │  │
+│  │  M   │ README.md               ← Modified            │  │
+│  │  ?   │ output/figures/graf.png ← Untracked (nový)    │  │
+│  │  A   │ scripts/03_model.R      ← Added (staged)      │  │
+│  └──────┴───────────────────────────────────────────────┘  │
+│                                                            │
+│  Legenda: M=Modified, A=Added, D=Deleted, ?=Untracked     │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Postup v RStudio:**
+
+```r
+# 1. Zaškrtnite súbory v Git paneli (Staged checkbox)
+# 2. Kliknite [Commit]
+# 3. V dialógu napíšte commit správu
+# 4. Kliknite [Commit]
+# 5. Kliknite [Push ↑]
+```
+
+**Diff okno** — ukáže presne čo ste zmenili (zelená = pridané, červená = zmazané):
+
+```diff
+- df <- read.csv("data.csv")                    # červená = zmazané
++ df <- readr::read_csv(here("data","raw","data.csv"))  # zelená = pridané
+```
+
+## JupyterLab Git
+
+Pre Python používateľov existuje **JupyterLab Git rozšírenie**.
+
+**Inštalácia:**
+```bash
+pip install jupyterlab jupyterlab-git
+jupyter lab build
+```
+
+**Postup v JupyterLab:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  JupyterLab — Git panel (ľavý bočný panel)              │
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │  ● Changes                                        │  │
+│  │      M  notebooks/exploratory.ipynb               │  │
+│  │      M  scripts/clean_data.py                     │  │
+│  │  ● Untracked                                      │  │
+│  │      ?  output/figures/plot.png                   │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │  Stage All Changes                          [+]   │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │  Summary: [Pridaný čistiaci skript          ]     │  │
+│  │  [Commit]                                         │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Dôležité pre Jupyter notebooky:**
+
+`.ipynb` súbory sú JSON — diff je nečitateľný. Riešenia:
+```bash
+# nbstripout — vymaže výstupy buniek pred commitom (odporúčané)
+pip install nbstripout
+nbstripout --install   # nastaví pre aktuálny repozitár
+```
+
+## VS Code
+
+VS Code má vynikajúci vstavaný Git a rozšírenie **GitLens**.
+
+**Vstavaný Source Control panel:**
+- Ikona vetvenia v ľavom paneli (alebo `Ctrl+Shift+G`)
+- Zobrazuje zmenené súbory, umožňuje staging, commit, push
+
+**GitLens rozšírenie** (odporúčané):
+- Zobrazuje `git blame` priamo v kóde — vidíte kto a kedy napísal každý riadok
+- Timeline — história zmien pre konkrétny súbor
+- Inštalácia: Extensions → hľadajte "GitLens"
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  VS Code — Source Control panel                          │
+│                                                          │
+│  SOURCE CONTROL        ⊙ COMMIT MESSAGE                  │
+│  ──────────────        ┌──────────────────────────────┐  │
+│  ▾ Changes             │ Opravená regresná analýza    │  │
+│    M  scripts/model.R  └──────────────────────────────┘  │
+│    M  README.md        [✓ Commit]  [··· More]            │
+│  ▾ Staged Changes                                        │
+│    A  output/result.csv                                  │
+│                                                          │
+│  Hore: ↓ Pull  ↑ Push  ↺ Sync                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 🌿 Vetvenie (Branches) {.tabset .tabset-fade .tabset-pills}
+
+## Čo sú vetvy?
+
+**Vetva (branch)** = paralelná verzia projektu. Umožňuje experimentovať bez rizika pokazenia hlavnej verzie.
+
+```
+main:    ──●────────────────────────────●──────►
+           │                            │
+           │  feature/model:            │  (merge späť)
+           └──●──●──●──────────────────►┘
+
+main:    ──●──────────────────────────────────►
+           │
+           └── hotfix/encoding:  ●──●  (rýchla oprava, potom merge)
+```
+
+**Prečo vetvy pre ekonómov?**
+
+- Skúšate novú metódu (IV regresia) bez toho aby ste rozbili existujúci OLS model
+- Vedúci chce vidieť "čistú" verziu kým vy experimentujete
+- Spolupráca — každý člen tímu pracuje na svojej vetve
+
+## Práca s vetvami
+
+```bash
+# Zoznam vetví
+git branch
+# → * main          ← hviezdička = aktuálna vetva
+#     feature/model
+
+# Vytvor novú vetvu
+git branch feature/iv-regression
+
+# Prepni sa na ňu
+git checkout feature/iv-regression
+
+# Skratka — vytvor + prepni
+git checkout -b feature/iv-regression
+
+# Novší syntax (Git 2.23+)
+git switch -c feature/iv-regression
+
+# Práca na vetve — normálne add + commit
+git add scripts/05_iv_model.R
+git commit -m "Pridaná IV regresná analýza"
+
+# Keď si spokojný — zlúč vetvu do main
+git checkout main
+git merge feature/iv-regression
+
+# Vymaž vetvu po zlúčení
+git branch -d feature/iv-regression
+
+# Pošli vetvu na GitHub (pre spoluprácu)
+git push origin feature/iv-regression
+```
+
+## Jednoduché pravidlo pre začiatočníkov
+
+Pre jednoduché sólové projekty (seminárna práca, bakalárka) **vetvy nepotrebujete**.
+
+Použite jednoduché pravidlo:
+
+```
+main   ← vždy funkčná, "čistá" verzia
+  │
+  └── Priamo commitujte malé zmeny do main
+
+Pre väčšie pokusy (zmena celej metodiky):
+git checkout -b experiment/novy_model
+... experimentujte ...
+git checkout main
+git merge experiment/novy_model   # ak sa páči
+git branch -d experiment/novy_model  # ak nie, len zmažte vetvu
+```
+
+---
+
+# 🤝 GitHub — spolupráca {.tabset .tabset-fade .tabset-pills}
+
+## Vytvorenie repozitára na GitHube
+
+**Postup:**
+
+1. Prihláste sa na **github.com**
+2. Kliknite **+** (hore vpravo) → **New repository**
+3. Vyplňte:
+   - **Repository name:** `v4-gdp-analysis` (bez medzier, lowercase)
+   - **Description:** "Analýza HDP krajín V4 2010–2023"
+   - **Visibility:** Private (pre školské projekty) alebo Public
+   - ☑ **Add a README file**
+   - ☑ **Add .gitignore** → vyberte R alebo Python
+4. Kliknite **Create repository**
+
+**Prepojenie s lokálnym projektom:**
+
+```bash
+# Ak ste vytvorili repo na GitHube a chcete ho stiahnuť
+git clone https://github.com/vas-username/v4-gdp-analysis.git
+cd v4-gdp-analysis
+
+# Ak ste začali lokálne a chcete pridať GitHub
+git remote add origin https://github.com/vas-username/v4-gdp-analysis.git
+git branch -M main
+git push -u origin main
+```
+
+## Spolupráca na projekte
+
+**Scenár: dvaja študenti na spoločnej semestrálnej práci**
+
+```bash
+# ── OSOBA A (iniciátor) ───────────────────────────────────────
+# Vytvorí repo na GitHube a pozve kolegu:
+# GitHub → Settings → Collaborators → Add people
+
+# ── OSOBA B (spolupracovník) ──────────────────────────────────
+git clone https://github.com/osoba-a/projekt.git
+cd projekt
+
+# Práca na vlastnej vetve
+git checkout -b feature/literatura-reserS
+# ... práca ...
+git add .
+git commit -m "Pridaná literárna rešerš k modelu"
+git push origin feature/literatura-reserS
+
+# Na GitHube: Create Pull Request → Osoba A skontroluje a schváli
+
+# ── KAŽDODENNÁ SYNCHRONIZÁCIA ─────────────────────────────────
+git pull              # stiahni zmeny od kolegu
+git push              # odošli svoje zmeny
+```
+
+## Pull Request workflow
+
+**Pull Request (PR)** = žiadosť o zlúčenie zmien. Aj pri sólovej práci je dobrá prax.
+
+```
+GitHub Pull Request flow:
+─────────────────────────────────────────────────────────────────
+
+1. Vytvoríte vetvu a commitnete zmeny:
+   feature/new-model branch → [commit] → [commit] → push
+
+2. Na GitHube: Compare & pull request
+   ┌──────────────────────────────────────────────────┐
+   │  Pridaná IV regresná analýza                     │
+   │                                                  │
+   │  Changes: +scripts/05_iv_model.R                 │
+   │           +output/iv_results.csv                 │
+   │                                                  │
+   │  [Review changes]  [Merge pull request]          │
+   └──────────────────────────────────────────────────┘
+
+3. Kolega (alebo vy sami) skontroluje kód
+
+4. Merge → zmeny sa dostanú do main
+
+5. Zmazanie vetvy (GitHub to navrhne automaticky)
+```
+
+---
+
+# 🔗 Git v reálnom projekte {.tabset .tabset-fade .tabset-pills}
+
+## Kompletný príklad: R projekt
+
+Zoberieme prázdny ekonometrický projekt od nuly po GitHub.
+
+```bash
+# ── KROK 1: Vytvorenie štruktúry ─────────────────────────────
+mkdir v4_gdp_projekt
+cd v4_gdp_projekt
+git init
+
+mkdir -p data/raw data/processed scripts output/figures docs
+
+# ── KROK 2: .gitignore ───────────────────────────────────────
+cat > .gitignore << 'EOF'
+.Rhistory
+.RData
+.Rproj.user/
+data/raw/
+data/processed/*.parquet
+*.log
+.DS_Store
+EOF
+
+# ── KROK 3: README ───────────────────────────────────────────
+cat > README.md << 'EOF'
+# Analýza HDP krajín V4 (2010–2023)
+Projekt pre predmet Úvod do Data Science.
+Spustenie: renv::restore(), potom scripts v poradí.
+EOF
+
+git add .gitignore README.md
+git commit -m "Inicializácia projektu: štruktúra a README"
+
+# ── KROK 4: Práca na skriptoch ───────────────────────────────
+# (editujete scripts/01_load.R v RStudiu)
+git add scripts/01_load.R
+git commit -m "Načítanie dát Eurostatu cez API"
+
+# (editujete scripts/02_clean.R)
+git add scripts/02_clean.R
+git commit -m "Čistenie: opravené typy, chýbajúce hodnoty"
+
+# ── KROK 5: Prepojenie s GitHubom ────────────────────────────
+git remote add origin https://github.com/vas-username/v4-gdp-projekt.git
+git push -u origin main
+
+# ── KROK 6: Ďalšia práca ─────────────────────────────────────
+git pull
+# (editujete)
+git add .
+git commit -m "Pridaná vizualizácia trendov HDP"
+git push
+```
+
+## Kompletný príklad: Python projekt
+
+```bash
+# ── KROK 1: Projekt s virtuálnym prostredím ──────────────────
+mkdir v4_gdp_python
+cd v4_gdp_python
+git init
+
+python -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install pandas numpy matplotlib seaborn jupyterlab
+
+# ── KROK 2: .gitignore (Python verzia) ───────────────────────
+cat > .gitignore << 'EOF'
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+data/raw/
+*.log
+.DS_Store
+EOF
+
+# ── KROK 3: requirements.txt ─────────────────────────────────
+pip freeze > requirements.txt
+git add .gitignore requirements.txt
+git commit -m "Inicializácia Python projektu"
+
+# ── KROK 4: Práca v Jupyter ──────────────────────────────────
+# Spustite Jupyter, pracujte v notebooku
+pip install nbstripout
+nbstripout --install     # automaticky vymaže outputy pred commitom
+
+git add notebooks/analysis.ipynb
+git commit -m "Exploratory data analysis HDP V4"
+
+# ── KROK 5: Na GitHube ───────────────────────────────────────
+git remote add origin https://github.com/username/v4-gdp-python.git
+git push -u origin main
+```
+
+## Časté situácie a riešenia
+
+**"Omylom som commitnul veľký súbor"**
+```bash
+# Zmaž ho z posledného commitu (ak ešte nie je pushnutý)
+git rm --cached data/raw/velky_subor.csv
+echo "data/raw/" >> .gitignore
+git add .gitignore
+git commit --amend --no-edit    # prepíše posledný commit
+```
+
+**"Chcem vidieť starú verziu súboru"**
+```bash
+git log --oneline scripts/model.R   # ukáže históriu daného súboru
+git show abc1234:scripts/model.R    # ukáže obsah v danom commite
+git checkout abc1234 -- scripts/model.R  # obnoví danú verziu
+```
+
+**"Mám merge konflikt"**
+```bash
+git pull      # → CONFLICT (content): Merge conflict in scripts/model.R
+
+# Otvorte súbor — uvidíte:
+# <<<<<<< HEAD
+# váš kód
+# =======
+# kód kolegu
+# >>>>>>> branch-name
+
+# Manuálne opravte súbor, potom:
+git add scripts/model.R
+git commit -m "Vyriešený merge konflikt v modeli"
+```
+
+**"Pushol som heslo do Gitu"**
+```bash
+# OKAMŽITE zneplatnite heslo/API kľúč!
+# Potom:
+git log --oneline    # nájdite commit pred "hackom"
+git revert HEAD      # vytvorí nový commit, ktorý ruší posledný
+
+# Dlhodobé riešenie: používajte .env + .gitignore
+```
+
+---
+
+# 🛠️ Nástroje pre reprodukovateľnosť {.tabset .tabset-fade .tabset-pills}
+
+## renv (R)
+
+`renv` zabezpečuje, že každý, kto spustí váš kód, má rovnaké verzie R balíčkov.
+
+```r
+# ── Nastavenie (raz na začiatku projektu) ────────────────────
+install.packages("renv")
+renv::init()
+# → Vytvorí renv.lock a renv/ priečinok
+# → .gitignore sa automaticky aktualizuje
+
+# ── Bežná práca ──────────────────────────────────────────────
+# Nainštalujete nový balíček
+install.packages("fixest")
+
+# Zaznamená aktuálne verzie
+renv::snapshot()
+# → Aktualizuje renv.lock
+
+# ── Na novom počítači / u kolegu ─────────────────────────────
+git clone https://github.com/username/projekt.git
+cd projekt
+
+# Obnoví presné verzie balíčkov
+renv::restore()
+# → Nainštaluje všetky balíčky v presných verziách z renv.lock
+
+# ── Čo commitnúť do Gitu ─────────────────────────────────────
+# ✅ renv.lock    (verzie balíčkov)
+# ✅ .Rprofile    (ak renv ho vytvorí)
+# ❌ renv/library/ (samotné balíčky — tie sa obnovujú cez restore)
+```
+
+## venv + requirements (Python)
+
+```bash
+# ── Nastavenie ────────────────────────────────────────────────
+python -m venv .venv
+source .venv/bin/activate     # aktivácia
+
+# Inštalácia balíčkov
+pip install pandas==2.1.0 matplotlib seaborn statsmodels
+
+# Zaznamenanie verzií
+pip freeze > requirements.txt
+
+# ── Na novom počítači / u kolegu ─────────────────────────────
+git clone https://github.com/username/projekt.git
+cd projekt
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# ── Čo commitnúť do Gitu ─────────────────────────────────────
+# ✅ requirements.txt
+# ❌ .venv/              (samotné prostredie)
+```
+
+## Kompletný checklist projektu
+
+```
+✅ CHECKLIST — PRED ODOVZDANÍM / ZDIEĽANÍM PROJEKTU
+
+ŠTRUKTÚRA
+□ Priečinok má zmysluplný názov (bez medzier a diakritiky)
+□ data/raw/ existuje a obsahuje pôvodné dáta
+□ Skripty sú číslované a pomenované opisne
+□ README.md vysvetľuje projekt a postup spúšťania
+
+GIT
+□ .gitignore obsahuje dáta, výstupy, lokálne konfigurácie
+□ git log --oneline ukáže zmysluplnú históriu
+□ Nie sú v repozitári heslá ani API kľúče
+□ Posledný commit je pushnutý na GitHub
+
+REPRODUKOVATEĽNOSŤ
+□ renv.lock alebo requirements.txt je aktuálny
+□ Cesty sú relatívne (here:: alebo pathlib)
+□ Kód sa spustí od začiatku bez chýb ("Restart & Run All")
+□ Závislosti na externých dátach sú zdokumentované
+
+DOKUMENTÁCIA
+□ README.md je aktuálny
+□ Kód má komentáre pri netriviálnych krokoch
+□ Výsledky majú interpretáciu (nie len čísla)
+```
+
+---
+
+# 🏁 Záver {.tabset .tabset-fade .tabset-pills}
+
+## Čo sme prebrali
+
+| Téma | Kľúčový nástroj | Príkaz / funkcia |
+|---|---|---|
+| Štruktúra projektu | `here` (R), `pathlib` (Py) | `here("data","raw","file.csv")` |
+| Inicializácia Git | Terminal / GitHub Desktop | `git init` |
+| Sledovanie zmien | Git | `git status`, `git diff` |
+| Uloženie snímky | Git | `git add .` + `git commit -m "…"` |
+| Vzdialený repozitár | GitHub | `git push`, `git pull` |
+| GUI pre R | RStudio Git panel | kliknutím |
+| GUI pre Python | JupyterLab Git | kliknutím |
+| GUI pre všetkých | GitHub Desktop | kliknutím |
+| Balíčkové prostredie | renv (R), venv (Py) | `renv::restore()` |
+| Vetvenie | Git | `git checkout -b vetva` |
+
+## Zlaté pravidlá
+
+1. **Commitujte často, s malými zmenami** — radšej 10 malých commitov ako 1 obrovský
+2. **Commit správy sú listy budúcnosti** — píšte ich tak, aby ste po 3 mesiacoch vedeli čo ste robili
+3. **NIKDY necommitujte heslá a API kľúče** — `.env` + `.gitignore`
+4. **Raw dáta sú posvätné** — nikdy ich neupravujte, len čítajte
+5. **Relatívne cesty vždy** — `here::here()` a `pathlib.Path`
+6. **README v každom projekte** — čo, prečo, ako spustiť
+7. **`renv::snapshot()` po každej inštalácii balíčka** — pre reprodukovateľnosť
+8. **Začnite jednoducho** — `main` vetva + GitHub Desktop, vetvy až keď ich naozaj potrebujete
+
+## Ďalšie zdroje
+
+**Git a GitHub:**
+
+- **Pro Git** (zadarmo, online) — *git-scm.com/book* — oficiálna kniha
+- **GitHub Skills** — interaktívne kurzy: *skills.github.com*
+- **Oh My Git!** — hra na učenie Gitu: *ohmygit.org*
+- **Learn Git Branching** — vizuálny interaktívny kurz: *learngitbranching.js.org*
+
+**Workflow a reprodukovateľnosť:**
+
+- **The Turing Way** — *the-turing-way.netlify.app* — komplexná príručka
+- **renv dokumentácia** — *rstudio.github.io/renv*
+- **Cookiecutter Data Science** — šablóna projektu: *drivendata.github.io/cookiecutter-data-science*
+- **here balíček** — *here.r-lib.org*
+
+**R projekty:**
+
+- **R for Data Science (2e)** — kapitola Workflow: *r4ds.hadley.nz*
+- **What They Forgot to Teach You About R** — *rstats.wtf*
+
+## Cvičenie 💻
+
+Vytvorte nový Data Science projekt so správnou štruktúrou a verzionujte ho Gitom:
+
+1. **Vytvorte priečinok** `ds_cvicenie_[vase_priezvisko]` so štruktúrou `data/raw/`, `scripts/`, `output/`
+2. **Inicializujte Git** (`git init`) a vytvorte `.gitignore` vhodný pre R alebo Python
+3. **Napíšte README.md** s popisom projektu
+4. **Commitnite** inicializáciu s popisnou správou
+5. **Vytvorte GitHub repozitár** a prepojte ho s lokálnym projektom (`git push`)
+6. **Pridajte skript** `scripts/01_load.R` (alebo `.py`) ktorý načíta akýkoľvek dataset a vypíše `dim()`/`shape`
+7. **Commitnite a pushujte** zmenu
+8. **Odovzdajte** URL vášho GitHub repozitára
+
+---
+
+*Renderovanie: `rmarkdown::render("workflow_git_prednaska.Rmd")`*  
+*CSS: `prednaska_doc.css` musí byť v rovnakom priečinku*
