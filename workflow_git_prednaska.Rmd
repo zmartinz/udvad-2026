@@ -1175,3 +1175,8 @@ Vytvorte nový Data Science projekt so správnou štruktúrou a verzionujte ho G
 
 *Renderovanie: `rmarkdown::render("workflow_git_prednaska.Rmd")`*  
 *CSS: `prednaska_doc.css` musí byť v rovnakom priečinku*
+
+
+## Doplneny slide
+
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas porttitor congue massa. Fusce posuere, magna sed pulvinar ultricies, purus lectus malesuada libero, sit amet commodo magna eros quis urna.
